@@ -1,0 +1,39 @@
+import { Injectable } from '@angular/core';
+import { WorkerInfo, WorkerMessage, WorkerConfig } from '$avam-config-models';
+import { WorkerFactory } from './worker-factory';
+import { AbstractWorkerProxy } from './proxies';
+import { Observable } from 'rxjs/Observable';
+
+@Injectable()
+export class WorkerProxyService {
+  private workerMap = new Map<string, AbstractWorkerProxy>();
+
+  constructor() { }
+
+  initialize(workersConfig: WorkerConfig[]) {
+    workersConfig.forEach(config => {
+      if (!this.workerMap.has(config.workerInfo.name)) {
+        const proxy = WorkerFactory.instance.getWorker(config);
+        this.workerMap.set(proxy.name, proxy);
+        proxy.connect();
+      } else {
+        console.log('Worker already exists');
+      }
+    });
+  }
+
+  getWorkerConnectionStatus(workerName: string): Observable<boolean> {
+    return this.workerMap.get(workerName).workerReady$;
+  }
+  messages(workerName: string): Observable<WorkerMessage> {
+    return this.workerMap.get(workerName).messages$;
+  }
+  sendMessage(workerInfo: WorkerInfo, workerMessage: WorkerMessage) {
+    if(this.workerMap.has(workerInfo.name)) {
+      const proxy = this.workerMap.get((workerInfo.name));
+      if(proxy.isReady) {
+        proxy.send(workerMessage);
+      }
+    }
+  }
+}
